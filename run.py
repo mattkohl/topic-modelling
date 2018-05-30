@@ -53,7 +53,7 @@ def main(url: str):
     txts = remove_stopwords(docs)
     txts_minus_hapax = remove_hapax_legomena(txts)
     dictionary = build_dictionary(txts_minus_hapax)
-    dictionary.save(f"resources/{fn}")
+    dictionary.save(f"resources/dictionaries/{fn}.dict")
     pprint(dictionary.token2id)
 
 
