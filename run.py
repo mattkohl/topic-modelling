@@ -1,12 +1,18 @@
+import argparse
+import re
+from collections import defaultdict
+from typing import List, Dict, Tuple, Union, Optional
+
 from gensim import corpora
 from gensim.corpora import Dictionary
 from gensim.corpora import MmCorpus
-from gensim.test.utils import datapath, get_tmpfile
-import re
 from requests import get
-from collections import defaultdict
-from typing import List, Dict, Tuple, Union, Optional
-import argparse
+
+
+def dictionaries_path(): return "resources/dictionaries/trr.dict"
+
+
+def corpora_path(fn): return f"resources/corpora/{fn}.mm"
 
 
 def remove_stopwords(documents: List[str]) -> List[List[str]]:
@@ -22,9 +28,9 @@ def remove_hapax_legomena(texts: List[List[str]]) -> List[List[str]]:
     return [[token for token in text if frequency[token] > 1] for text in texts]
 
 
-def load_corpus() -> Optional[MmCorpus]:
+def load_corpus(fn) -> Optional[MmCorpus]:
     try:
-        corpus = MmCorpus(datapath("resources/corpora/trr.mm"))
+        corpus = MmCorpus(corpora_path(fn))
     except Exception as e:
         print(f"No corpus yet: {e}")
         return None
@@ -32,14 +38,16 @@ def load_corpus() -> Optional[MmCorpus]:
         return corpus
 
 
-def build_corpus(texts: List[List[str]], dictionary: Dictionary) -> List[List[Tuple[int, int]]]:
-    corpus = [dictionary.doc2bow(text) for text in texts]
+def build_corpus(fn: str, texts: List[List[str]], dictionary: Dictionary) -> List[List[Tuple[int, int]]]:
+    vectors = [dictionary.doc2bow(text) for text in texts]
+    MmCorpus.serialize(corpora_path(fn), vectors)
+    corpus = MmCorpus(corpora_path(fn))
     return corpus
 
 
 def load_dictionary() -> Optional[Dictionary]:
     try:
-        dictionary = Dictionary.load(f"resources/dictionaries/trr.dict")
+        dictionary = Dictionary.load(dictionaries_path())
     except Exception as e:
         print(f"No dictionary yet: {e}")
         return None
@@ -49,7 +57,7 @@ def load_dictionary() -> Optional[Dictionary]:
 
 def build_dictionary(texts: List[List[str]]) -> Dictionary:
     dictionary = corpora.Dictionary(texts)
-    dictionary.save(f"resources/dictionaries/trr.dict")
+    dictionary.save(dictionaries_path())
     return dictionary
 
 
@@ -92,11 +100,11 @@ def get_random_document(url) -> Dict[str, Union[str, List[List[str]]]]:
 def main(url: str) -> None:
     from pprint import pprint
     dictionary = load_dictionary()
-    corpus = load_corpus()
     document = get_random_document(url)
     pprint(document)
     dictionary = update_dictionary(dictionary, document["texts"])
-    pprint(dictionary.token2id)
+    corpus = build_corpus(document["name"], document["texts"], dictionary)
+    pprint(list(corpus))
 
 
 if __name__ == "__main__":
