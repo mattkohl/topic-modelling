@@ -1,5 +1,7 @@
 import argparse
+import os
 import re
+import itertools
 from collections import defaultdict
 from typing import List, Dict, Tuple, Union, Optional
 
@@ -8,11 +10,14 @@ from gensim.corpora import Dictionary
 from gensim.corpora import MmCorpus
 from requests import get
 
+DICTS = "resources/dictionaries"
+CORPORA = "resources/corpora"
 
-def dictionaries_path(): return "resources/dictionaries/trr.dict"
+
+def dictionaries_path(): return f"{DICTS}/trr.dict"
 
 
-def corpora_path(fn): return f"resources/corpora/{fn}.mm"
+def corpora_path(fn): return f"{CORPORA}/{fn}.mm"
 
 
 def remove_stopwords(documents: List[str]) -> List[List[str]]:
@@ -31,24 +36,32 @@ def remove_hapax_legomena(texts: List[List[str]]) -> List[List[str]]:
 def load_corpus(fn) -> Optional[MmCorpus]:
     try:
         corpus = MmCorpus(corpora_path(fn))
-    except Exception as e:
+    except FileNotFoundError as e:
         print(f"No corpus yet: {e}")
         return None
     else:
         return corpus
 
 
-def build_corpus(fn: str, texts: List[List[str]], dictionary: Dictionary) -> List[List[Tuple[int, int]]]:
+def build_corpus(fn: str, texts: List[List[str]], dictionary: Dictionary) -> MmCorpus:
     vectors = [dictionary.doc2bow(text) for text in texts]
     MmCorpus.serialize(corpora_path(fn), vectors)
     corpus = MmCorpus(corpora_path(fn))
     return corpus
 
 
+def aggregate_corpora() -> MmCorpus:
+    cs = [f"{CORPORA}/{c}" for c in os.listdir(CORPORA) if c.endswith("mm")]
+    chained_corpora = itertools.chain(*cs)
+    MmCorpus.serialize(corpora_path("master"), chained_corpora)
+    master = MmCorpus(corpora_path("master"))
+    return master
+
+
 def load_dictionary() -> Optional[Dictionary]:
     try:
         dictionary = Dictionary.load(dictionaries_path())
-    except Exception as e:
+    except FileNotFoundError as e:
         print(f"No dictionary yet: {e}")
         return None
     else:
@@ -98,13 +111,15 @@ def get_random_document(url) -> Dict[str, Union[str, List[List[str]]]]:
 
 
 def main(url: str) -> None:
-    from pprint import pprint
-    dictionary = load_dictionary()
-    document = get_random_document(url)
-    pprint(document)
-    dictionary = update_dictionary(dictionary, document["texts"])
-    corpus = build_corpus(document["name"], document["texts"], dictionary)
-    pprint(list(corpus))
+    # from pprint import pprint
+    # dictionary = load_dictionary()
+    # document = get_random_document(url)
+    # pprint(document)
+    # dictionary = update_dictionary(dictionary, document["texts"])
+    # corpus = build_corpus(document["name"], document["texts"], dictionary)
+    # pprint(list(corpus))
+    master = aggregate_corpora()
+    print(master)
 
 
 if __name__ == "__main__":
